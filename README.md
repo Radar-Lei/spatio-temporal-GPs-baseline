@@ -1,3 +1,8 @@
+
+```bash
+python main.py --dataset 'PeMS7_228' --missing_ratio 0.3
+```
+
 # Spatio-Temporal Variational GPs
 
 This repository is the official implementation of the methods in the publication:

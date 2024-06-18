@@ -7,18 +7,20 @@ import tqdm
 import numpy as np
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="linear_operator")
+import os
+os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 
 
 class FeatureExtractor(torch.nn.Sequential):
     def __init__(self, data_dim):
         super(FeatureExtractor, self).__init__()
-        self.add_module('linear1', torch.nn.Linear(data_dim, 1000))
+        self.add_module('linear1', torch.nn.Linear(data_dim, 512))
         self.add_module('relu1', torch.nn.ReLU())
-        self.add_module('linear2', torch.nn.Linear(1000, 500))
+        self.add_module('linear2', torch.nn.Linear(512, 256))
         self.add_module('relu2', torch.nn.ReLU())
-        self.add_module('linear3', torch.nn.Linear(500, 50))
+        self.add_module('linear3', torch.nn.Linear(256, 128))
         self.add_module('relu3', torch.nn.ReLU())
-        self.add_module('linear4', torch.nn.Linear(50, 2))
+        self.add_module('linear4', torch.nn.Linear(128, 2))
 
 class GPRegressionModel(gpytorch.models.ExactGP):
         def __init__(self, train_x, train_y, likelihood, data_dim):
@@ -26,7 +28,7 @@ class GPRegressionModel(gpytorch.models.ExactGP):
             self.mean_module = gpytorch.means.ConstantMean()
             self.covar_module = gpytorch.kernels.GridInterpolationKernel(
                 gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel(ard_num_dims=2)),
-                num_dims=2, grid_size=40
+                num_dims=2, grid_size=100
             )
             self.feature_extractor = FeatureExtractor(data_dim)
 
@@ -101,10 +103,10 @@ if __name__ == '__main__':
     model = GPRegressionModel(train_X, train_y, likelihood, train_x.shape[1])
 
     if torch.cuda.is_available():
-        model = model.cuda()
-        likelihood = likelihood.cuda()
+        model = model.to(device)
+        likelihood = likelihood.to(device)
 
-    training_iterations = 120
+    training_iterations = 240
 
     # Find optimal model hyperparameters
     model.train()
@@ -132,3 +134,28 @@ if __name__ == '__main__':
         loss.backward()
         iterator.set_postfix(loss=loss.item())
         optimizer.step()
+
+        if (i + 1) % 5 == 0:
+            model.eval()
+            likelihood.eval()
+            with torch.no_grad(), gpytorch.settings.use_toeplitz(False), gpytorch.settings.fast_pred_var():
+                preds = model(test_x)
+                # Convert tensors to numpy arrays and reshape them to 2D for the inverse_transform method
+                preds_np = preds.mean.cpu().numpy().reshape(-1, 1)
+                test_y_np = test_y.cpu().numpy().reshape(-1, 1)
+                expanded_preds_np = np.repeat(preds_np, num_columns, axis=1)
+                expanded_test_y_np = np.repeat(test_y_np, num_columns, axis=1)
+
+                # Apply inverse_transform
+                preds_np = standardizer.inverse_transform(expanded_preds_np)[:,-1]
+                test_y_np = standardizer.inverse_transform(expanded_test_y_np)[:,-1]
+                # Compute MAE
+                mae = np.mean(np.abs(preds_np - test_y_np))
+                # Compute RMSE
+                rmse = np.sqrt(np.mean((preds_np - test_y_np)**2))
+                # Compute MAPE
+                mape = np.mean(np.abs((test_y_np - preds_np) / test_y_np))
+
+                # Print MAE, RMSE, and MAPE in one line
+                print('Iteration {}, Test MAE: {}, RMSE: {}, MAPE: {}%'.format(i+1, mae, rmse, mape))
+            model.train()
