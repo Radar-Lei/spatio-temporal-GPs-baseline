@@ -1,158 +1,101 @@
-import math
+import argparse
+from sklearn.preprocessing import StandardScaler
 import torch
+import pandas as pd
 import gpytorch
 import tqdm
-from matplotlib import pyplot as plt
 
-train_x = torch.linspace(0, 1, 100)
+class FeatureExtractor(torch.nn.Sequential):
+    def __init__(self, data_dim):
+        super(FeatureExtractor, self).__init__()
+        self.add_module('linear1', torch.nn.Linear(data_dim, 1000))
+        self.add_module('relu1', torch.nn.ReLU())
+        self.add_module('linear2', torch.nn.Linear(1000, 500))
+        self.add_module('relu2', torch.nn.ReLU())
+        self.add_module('linear3', torch.nn.Linear(500, 50))
+        self.add_module('relu3', torch.nn.ReLU())
+        self.add_module('linear4', torch.nn.Linear(50, 2))
 
-train_x = torch.stack([
-    torch.linspace(0, 1, 100),
-    torch.linspace(1, 0.5, 100),
-    torch.linspace(1, 3, 100),
-], -1)
+class GPRegressionModel(gpytorch.models.ExactGP):
+        def __init__(self, train_x, train_y, likelihood, data_dim):
+            super(GPRegressionModel, self).__init__(train_x, train_y, likelihood)
+            self.mean_module = gpytorch.means.ConstantMean()
+            self.covar_module = gpytorch.kernels.GridInterpolationKernel(
+                gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel(ard_num_dims=2)),
+                num_dims=2, grid_size=100
+            )
+            self.feature_extractor = FeatureExtractor(data_dim)
 
+            # This module will scale the NN features so that they're nice values
+            self.scale_to_bounds = gpytorch.utils.grid.ScaleToBounds(-1., 1.)
 
-train_y = torch.stack([
-    torch.sin(train_x[:,0] * (2 * math.pi)) + torch.randn(train_x[:,0].size()) * 0.2,
-    torch.cos(train_x[:,1] * (2 * math.pi)) + torch.randn(train_x[:,0].size()) * 0.2,
-    torch.sin(train_x[:,2] * (2 * math.pi)) + 2 * torch.cos(train_x[:,0] * (2 * math.pi)) + torch.randn(train_x[:,0].size()) * 0.2,
-    -torch.cos(train_x[:,2] * (2 * math.pi)) + torch.randn(train_x[:,0].size()) * 0.2,
-], -1)
+        def forward(self, x):
+            # We're first putting our data through a deep net (feature extractor)
+            projected_x = self.feature_extractor(x)
+            projected_x = self.scale_to_bounds(projected_x)  # Make the NN values "nice"
 
-print(train_x.shape, train_y.shape)
+            mean_x = self.mean_module(projected_x)
+            covar_x = self.covar_module(projected_x)
+            return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
 
-num_latents = 3
-num_tasks = 4
+if __name__ == '__main__':
 
-class MultitaskGPModel(gpytorch.models.ApproximateGP):
-    def __init__(self):
-        # Let's use a different set of inducing points for each latent function
-        inducing_points = torch.rand(num_latents, 16, 1)
-
-        # We have to mark the CholeskyVariationalDistribution as batch
-        # so that we learn a variational distribution for each task
-        variational_distribution = gpytorch.variational.CholeskyVariationalDistribution(
-            inducing_points.size(-2), batch_shape=torch.Size([num_latents])
-        )
-
-        # We have to wrap the VariationalStrategy in a LMCVariationalStrategy
-        # so that the output will be a MultitaskMultivariateNormal rather than a batch output
-        variational_strategy = gpytorch.variational.LMCVariationalStrategy(
-            gpytorch.variational.VariationalStrategy(
-                self, inducing_points, variational_distribution, learn_inducing_locations=True
-            ),
-            num_tasks=4,
-            num_latents=3,
-            latent_dim=-1
-        )
-
-        super().__init__(variational_strategy)
-
-        # The mean and covariance modules should be marked as batch
-        # so we learn a different set of hyperparameters
-        self.mean_module = gpytorch.means.ConstantMean(batch_shape=torch.Size([num_latents]))
-        self.covar_module = gpytorch.kernels.ScaleKernel(
-            gpytorch.kernels.RBFKernel(batch_shape=torch.Size([num_latents])),
-            batch_shape=torch.Size([num_latents])
-        )
-
-    def forward(self, x):
-        # The forward function should be written as if we were dealing with each output
-        # dimension in batch
-        mean_x = self.mean_module(x)
-        covar_x = self.covar_module(x)
-        return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
-
-
-model = MultitaskGPModel()
-likelihood = gpytorch.likelihoods.MultitaskGaussianLikelihood(num_tasks=num_tasks)
-
-
-class IndependentMultitaskGPModel(gpytorch.models.ApproximateGP):
-    def __init__(self):
-        # Let's use a different set of inducing points for each task
-        inducing_points = torch.rand(num_tasks, 16, 1)
-
-        # We have to mark the CholeskyVariationalDistribution as batch
-        # so that we learn a variational distribution for each task
-        variational_distribution = gpytorch.variational.CholeskyVariationalDistribution(
-            inducing_points.size(-2), batch_shape=torch.Size([num_tasks])
-        )
-
-        variational_strategy = gpytorch.variational.IndependentMultitaskVariationalStrategy(
-            gpytorch.variational.VariationalStrategy(
-                self, inducing_points, variational_distribution, learn_inducing_locations=True
-            ),
-            num_tasks=4,
-        )
-
-        super().__init__(variational_strategy)
-
-        # The mean and covariance modules should be marked as batch
-        # so we learn a different set of hyperparameters
-        self.mean_module = gpytorch.means.ConstantMean(batch_shape=torch.Size([num_tasks]))
-        self.covar_module = gpytorch.kernels.ScaleKernel(
-            gpytorch.kernels.RBFKernel(batch_shape=torch.Size([num_tasks])),
-            batch_shape=torch.Size([num_tasks])
-        )
-
-    def forward(self, x):
-        # The forward function should be written as if we were dealing with each output
-        # dimension in batch
-        mean_x = self.mean_module(x)
-        covar_x = self.covar_module(x)
-        return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
+    random_seed = 42
     
-num_epochs = 500
+    parser = argparse.ArgumentParser(description='ST-VGP')
+    parser.add_argument('--dataset', type=str, default='PeMS7_228', help='dataset name')
+
+    args = parser.parse_args()
+
+    if args.dataset == 'PeMS7_228':
+        data = pd.read_csv("datasets/PeMS7_228/PeMSD7_V_228.csv", header=None).values
+    elif args.dataset == 'PeMS7_1026':
+        data = pd.read_csv("datasets/PeMS7_1026/PeMSD7_V_1026.csv", header=None).values
+    elif args.dataset == 'Seattle':
+        data = pd.read_pickle('./dataset/Seattle/speed_matrix_2015').values # (D*L_d, K)
+
+    standardizer = StandardScaler()
+    standardizer.fit(data)
+    data = standardizer.transform(data)
+    data = torch.Tensor(data) # data shape (D*L_d, K)
+
+    
 
 
-model.train()
-likelihood.train()
+    
+    likelihood = gpytorch.likelihoods.GaussianLikelihood()
+    model = GPRegressionModel(train_x, train_y, likelihood)
 
-optimizer = torch.optim.Adam([
-    {'params': model.parameters()},
-    {'params': likelihood.parameters()},
-], lr=0.1)
+    if torch.cuda.is_available():
+        model = model.cuda()
+        likelihood = likelihood.cuda()
 
-# Our loss object. We're using the VariationalELBO, which essentially just computes the ELBO
-mll = gpytorch.mlls.VariationalELBO(likelihood, model, num_data=train_y.size(0))
+    training_iterations = 60
 
-# We use more CG iterations here because the preconditioner introduced in the NeurIPS paper seems to be less
-# effective for VI.
-epochs_iter = tqdm.tqdm(range(num_epochs), desc="Epoch")
-for i in epochs_iter:
-    # Within each iteration, we will go over each minibatch of data
-    optimizer.zero_grad()
-    output = model(train_x)
-    loss = -mll(output, train_y)
-    epochs_iter.set_postfix(loss=loss.item())
-    loss.backward()
-    optimizer.step()
+    # Find optimal model hyperparameters
+    model.train()
+    likelihood.train()
 
+    # Use the adam optimizer
+    optimizer = torch.optim.Adam([
+        {'params': model.feature_extractor.parameters()},
+        {'params': model.covar_module.parameters()},
+        {'params': model.mean_module.parameters()},
+        {'params': model.likelihood.parameters()},
+    ], lr=0.01)
 
-model.eval()
-likelihood.eval()
+    # "Loss" for GPs - the marginal log likelihood
+    mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model)
 
-# Initialize plots
-fig, axs = plt.subplots(1, num_tasks, figsize=(4 * num_tasks, 3))
-
-# Make predictions
-with torch.no_grad(), gpytorch.settings.fast_pred_var():
-    test_x = torch.linspace(0, 1, 51)
-    predictions = likelihood(model(test_x))
-    mean = predictions.mean
-    lower, upper = predictions.confidence_region()
-
-for task, ax in enumerate(axs):
-    # Plot training data as black stars
-    ax.plot(train_x.detach().numpy(), train_y[:, task].detach().numpy(), 'k*')
-    # Predictive mean as blue line
-    ax.plot(test_x.numpy(), mean[:, task].numpy(), 'b')
-    # Shade in confidence
-    ax.fill_between(test_x.numpy(), lower[:, task].numpy(), upper[:, task].numpy(), alpha=0.5)
-    ax.set_ylim([-3, 3])
-    ax.legend(['Observed Data', 'Mean', 'Confidence'])
-    ax.set_title(f'Task {task + 1}')
-
-fig.tight_layout()
+    def train():
+        iterator = tqdm.tqdm(range(training_iterations))
+        for i in iterator:
+            # Zero backprop gradients
+            optimizer.zero_grad()
+            # Get output from model
+            output = model(train_x)
+            # Calc loss and backprop derivatives
+            loss = -mll(output, train_y)
+            loss.backward()
+            iterator.set_postfix(loss=loss.item())
+            optimizer.step()

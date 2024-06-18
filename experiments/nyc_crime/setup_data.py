@@ -36,7 +36,7 @@ date_start='2010-01-01'
 date_end='2013-01-1'
 BIN_SIZES=[weeks_between_dates(date_start, date_end), 40, 40]
 PD_DESC_FILTER = 'ASSAULT 3'
-dataset_folder_root = '../../datasets/'
+dataset_folder_root = 'datasets/'
 
 
 #========================== Helper functions ==========================
@@ -125,7 +125,13 @@ def load_data():
 
 if __name__ == "__main__":
     import sys
-    sys.path.append('../')
+    import os
+
+    # Get the absolute path of the parent directory
+    parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    # Add the parent directory to sys.path
+    sys.path.append(parent_dir)
     from utils import normalise_df, create_spatial_temporal_grid, datetime_to_epoch, normalise, ensure_timeseries_at_each_locations, un_normalise_df, epoch_to_datetime
     import utils
 
@@ -240,8 +246,3 @@ if __name__ == "__main__":
             pickle.dump(raw_data_dict, file)
 
     logger.info('finished')
-
-
-    
-
-

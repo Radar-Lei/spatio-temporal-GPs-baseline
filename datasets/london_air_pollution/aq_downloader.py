@@ -57,7 +57,7 @@ if DOWNLOAD_FLAG:
 
             #check that file exists on server
             resp = requests.head(url)
-            if resp.status_code is 200:
+            if resp.status_code == 200:
                 #file exists
                 count = count + 1
                 print('Downloading {site} - {year}'.format(site=site, year=YEAR))
