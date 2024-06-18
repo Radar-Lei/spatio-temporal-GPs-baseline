@@ -20,7 +20,7 @@ else:
 
 
 inducing_type = 'all_time'  # 'default'
-num_z = 30
+num_z = 30 # spatial dimension
 likelihood_noise = 5.
 kernel_lengthscales = [0.001, 0.2, 0.2]
 step_size = 0.01

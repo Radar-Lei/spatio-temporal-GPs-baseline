@@ -2,6 +2,7 @@
 datasets/london/
 datasets/london_air_pollution/downloaded_data
 datasets/new_york_crime_large/data
+datasets/elevators.mat
 
 experiments/*/data/*
 experiments/*/results/*
