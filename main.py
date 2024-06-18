@@ -4,6 +4,10 @@ import torch
 import pandas as pd
 import gpytorch
 import tqdm
+import numpy as np
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="linear_operator")
+
 
 class FeatureExtractor(torch.nn.Sequential):
     def __init__(self, data_dim):
@@ -22,7 +26,7 @@ class GPRegressionModel(gpytorch.models.ExactGP):
             self.mean_module = gpytorch.means.ConstantMean()
             self.covar_module = gpytorch.kernels.GridInterpolationKernel(
                 gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel(ard_num_dims=2)),
-                num_dims=2, grid_size=100
+                num_dims=2, grid_size=40
             )
             self.feature_extractor = FeatureExtractor(data_dim)
 
@@ -44,33 +48,63 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser(description='ST-VGP')
     parser.add_argument('--dataset', type=str, default='PeMS7_228', help='dataset name')
+    parser.add_argument('--missing_ratio',type=float, default=0.3, help='ratio of sensor-free nodes')
 
     args = parser.parse_args()
 
     if args.dataset == 'PeMS7_228':
+        num_days = 44
         data = pd.read_csv("datasets/PeMS7_228/PeMSD7_V_228.csv", header=None).values
     elif args.dataset == 'PeMS7_1026':
+        num_days = 44
         data = pd.read_csv("datasets/PeMS7_1026/PeMSD7_V_1026.csv", header=None).values
     elif args.dataset == 'Seattle':
+        num_days = 365
         data = pd.read_pickle('./dataset/Seattle/speed_matrix_2015').values # (D*L_d, K)
 
+    test_days = 2
     standardizer = StandardScaler()
     standardizer.fit(data)
     data = standardizer.transform(data)
-    data = torch.Tensor(data) # data shape (D*L_d, K)
+    data = torch.Tensor(data) # data shape (D*L_d, K
 
-    
+    # Set the random seed
+    np.random.seed(random_seed)
+    # Get the number of columns in the data
+    num_columns = data.shape[1]
+    # Create a numpy array of all column indices
+    all_indices = np.arange(num_columns)
+    # Calculate the number of columns to be selected
+    num_selected_columns = int(num_columns * args.missing_ratio)
+    # Randomly select column indices
+    selected_indices = np.random.choice(num_columns, num_selected_columns, replace=False)
+    # Find the indices that are in all_indices but not in selected_indices
+    rest_indices = np.setdiff1d(all_indices, selected_indices)
 
+    X = data[:, rest_indices]
+    Y = data[:, selected_indices]
+    train_X = X[:int((num_days-test_days)*288),:].contiguous()
+    train_Y = Y[:int((num_days-test_days)*288),:].contiguous()
+    test_X = X[int((num_days-test_days)*288):,:].contiguous()
+    test_Y = Y[int((num_days-test_days)*288):,:].contiguous()
 
-    
+    train_x = train_X
+    train_y = train_Y[:,0]
+    test_x = test_X
+    test_y = test_Y[:,0]
+
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+        train_x, train_y, test_x, test_y = train_x.to(device), train_y.to(device), test_x.to(device), test_y.to(device)
+
     likelihood = gpytorch.likelihoods.GaussianLikelihood()
-    model = GPRegressionModel(train_x, train_y, likelihood)
+    model = GPRegressionModel(train_X, train_y, likelihood, train_x.shape[1])
 
     if torch.cuda.is_available():
         model = model.cuda()
         likelihood = likelihood.cuda()
 
-    training_iterations = 60
+    training_iterations = 120
 
     # Find optimal model hyperparameters
     model.train()
@@ -87,15 +121,14 @@ if __name__ == '__main__':
     # "Loss" for GPs - the marginal log likelihood
     mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model)
 
-    def train():
-        iterator = tqdm.tqdm(range(training_iterations))
-        for i in iterator:
-            # Zero backprop gradients
-            optimizer.zero_grad()
-            # Get output from model
-            output = model(train_x)
-            # Calc loss and backprop derivatives
-            loss = -mll(output, train_y)
-            loss.backward()
-            iterator.set_postfix(loss=loss.item())
-            optimizer.step()
+    iterator = tqdm.tqdm(range(training_iterations))
+    for i in iterator:
+        # Zero backprop gradients
+        optimizer.zero_grad()
+        # Get output from model
+        output = model(train_x)
+        # Calc loss and backprop derivatives
+        loss = -mll(output, train_y)
+        loss.backward()
+        iterator.set_postfix(loss=loss.item())
+        optimizer.step()
