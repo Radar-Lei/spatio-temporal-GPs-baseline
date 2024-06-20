@@ -1,8 +1,37 @@
+# Spatio-Temporal Variational GPs baseline
+![Implementation](/fig/st_vgp.gif)
 
+This repository was forked from [IGNNK](https://github.com/AaltoML/spatio-temporal-GPs) and modified to work as one of the baselines for our study (Reference number: TRC-23-02333).
+
+First, you should download the data via [Google Drive](https://drive.google.com/drive/folders/14VPjNlQQRd5FCXXHrBPYbety9fiWx7--?usp=drive_link), and put each data set folder under the folder datasets/.
+
+Then, you can test ST-VGP on these data sets with varying missing ratio using the following:
+
+For the PeMS7_228 data set,
 ```bash
 python main.py --dataset 'PeMS7_228' --missing_ratio 0.3
+python main.py --dataset 'PeMS7_228' --missing_ratio 0.6
+python main.py --dataset 'PeMS7_228' --missing_ratio 0.75
 ```
 
+For the PeMS7_1026 data set,
+```bash
+python main.py --dataset 'PeMS7_1026' --missing_ratio 0.3
+python main.py --dataset 'PeMS7_1026' --missing_ratio 0.6
+python main.py --dataset 'PeMS7_1026' --missing_ratio 0.75
+```
+
+For the Seattle data set,
+```bash
+python main.py --dataset 'Seattle' --missing_ratio 0.3
+python main.py --dataset 'Seattle' --missing_ratio 0.6
+python main.py --dataset 'Seattle' --missing_ratio 0.75
+```
+
+
+
+
+# The following is the original readme file
 # Spatio-Temporal Variational GPs
 
 This repository is the official implementation of the methods in the publication:
