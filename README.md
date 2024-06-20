@@ -1,7 +1,7 @@
 # Spatio-Temporal Variational GPs baseline
 ![Implementation](/fig/st_vgp.gif)
 
-This repository was forked from [IGNNK](https://github.com/AaltoML/spatio-temporal-GPs) and modified to work as one of the baselines for our study (Reference number: TRC-23-02333).
+This repository was forked from [Spatio-Temporal Variational GPs](https://github.com/AaltoML/spatio-temporal-GPs) and modified to work as one of the baselines for our study (Reference number: TRC-23-02333).
 
 First, you should download the data via [Google Drive](https://drive.google.com/drive/folders/14VPjNlQQRd5FCXXHrBPYbety9fiWx7--?usp=drive_link), and put each data set folder under the folder datasets/.
 
