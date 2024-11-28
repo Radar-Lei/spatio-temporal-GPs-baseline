@@ -14,7 +14,7 @@ python main.py --dataset 'PeMS7_I' --missing_ratio 0.3
 python main.py --dataset 'PeMS7_I' --missing_ratio 0.6
 ```
 
-For the PeMS7_1026 data set,
+For the PeMS7_II data set,
 ```bash
 python main.py --dataset 'PeMS7_II' --missing_ratio 0.1
 python main.py --dataset 'PeMS7_II' --missing_ratio 0.3
