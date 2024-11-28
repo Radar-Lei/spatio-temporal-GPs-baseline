@@ -3,8 +3,8 @@ datasets/london/
 datasets/london_air_pollution/downloaded_data
 datasets/new_york_crime_large/data
 datasets/elevators.mat
-datasets/PeMS7_228/
-datasets/PeMS7_1026/
+datasets/PeMS7_I/
+datasets/PeMS7_II/
 datasets/Seattle/
 
 experiments/*/data/*

@@ -1,31 +1,31 @@
 # Spatio-Temporal Variational GPs baseline
 ![Implementation](/fig/st_vgp.gif)
 
-This repository was forked from [Spatio-Temporal Variational GPs](https://github.com/AaltoML/spatio-temporal-GPs) and modified to work as one of the baselines for our study (Reference number: TRC-23-02333).
+This repository was forked from [Spatio-Temporal Variational GPs](https://github.com/AaltoML/spatio-temporal-GPs) and modified to work as one of the baselines for our study (Reference number: T-ITS-24-06-1995).
 
 First, you should download the data via [Google Drive](https://drive.google.com/drive/folders/14VPjNlQQRd5FCXXHrBPYbety9fiWx7--?usp=drive_link), and put each data set folder under the folder datasets/.
 
 Then, you can test ST-VGP on these data sets with varying missing ratio using the following:
 
-For the PeMS7_228 data set,
+For the PeMS7_I data set,
 ```bash
-python main.py --dataset 'PeMS7_228' --missing_ratio 0.3
-python main.py --dataset 'PeMS7_228' --missing_ratio 0.6
-python main.py --dataset 'PeMS7_228' --missing_ratio 0.75
+python main.py --dataset 'PeMS7_I' --missing_ratio 0.1
+python main.py --dataset 'PeMS7_I' --missing_ratio 0.3
+python main.py --dataset 'PeMS7_I' --missing_ratio 0.6
 ```
 
 For the PeMS7_1026 data set,
 ```bash
-python main.py --dataset 'PeMS7_1026' --missing_ratio 0.3
-python main.py --dataset 'PeMS7_1026' --missing_ratio 0.6
-python main.py --dataset 'PeMS7_1026' --missing_ratio 0.75
+python main.py --dataset 'PeMS7_II' --missing_ratio 0.1
+python main.py --dataset 'PeMS7_II' --missing_ratio 0.3
+python main.py --dataset 'PeMS7_II' --missing_ratio 0.6
 ```
 
 For the Seattle data set,
 ```bash
+python main.py --dataset 'Seattle' --missing_ratio 0.1
 python main.py --dataset 'Seattle' --missing_ratio 0.3
 python main.py --dataset 'Seattle' --missing_ratio 0.6
-python main.py --dataset 'Seattle' --missing_ratio 0.75
 ```
 
 

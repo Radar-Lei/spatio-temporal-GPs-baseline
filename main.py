@@ -49,17 +49,17 @@ if __name__ == '__main__':
     random_seed = 42
     
     parser = argparse.ArgumentParser(description='ST-VGP')
-    parser.add_argument('--dataset', type=str, default='PeMS7_228', help='dataset name')
+    parser.add_argument('--dataset', type=str, default='PeMS7_I', help='dataset name')
     parser.add_argument('--missing_ratio',type=float, default=0.3, help='ratio of sensor-free nodes')
 
     args = parser.parse_args()
 
-    if args.dataset == 'PeMS7_228':
+    if args.dataset == 'PeMS7_I':
         num_days = 44
-        data = pd.read_csv("datasets/PeMS7_228/PeMSD7_V_228.csv", header=None).values
-    elif args.dataset == 'PeMS7_1026':
+        data = pd.read_csv("datasets/PeMS7_I/PeMSD7_V_I.csv", header=None).values
+    elif args.dataset == 'PeMS7_II':
         num_days = 44
-        data = pd.read_csv("datasets/PeMS7_1026/PeMSD7_V_1026.csv", header=None).values
+        data = pd.read_csv("datasets/PeMS7_II/PeMSD7_V_II.csv", header=None).values
     elif args.dataset == 'Seattle':
         num_days = 365
         data = pd.read_pickle('./dataset/Seattle/speed_matrix_2015').values # (D*L_d, K)
